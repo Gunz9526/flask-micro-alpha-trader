@@ -1,0 +1,89 @@
+services:
+  flask:
+    build: .
+    container_name: alpha-trader-flask
+    restart: always
+    ports:
+      - "5000:5000"
+      - "8000:8000" 
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - prometheus
+    command: gunicorn --bind 0.0.0.0:5000 'app:create_app()'
+
+  celery_worker:
+    build: .
+    container_name: alpha-trader-celery
+    restart: always
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on: 
+      - redis
+    command: celery -A app.celery worker --loglevel=info
+
+  celery_beat:
+    build: .
+    container_name: alpha-trader-celery-beat
+    restart: always
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    command: celery -A app.celery beat --loglevel=info
+
+  flower:
+    image: mher/flower
+    container_name: alpha-trader-flower
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_PORT=5555
+    depends_on:
+      - redis
+      - celery_worker
+
+  redis:
+    image: redis:alpine
+    container_name: alpha-trader-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  prometheus:
+    image: prom/prometheus
+    container_name: alpha-trader-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    container_name: alpha-trader-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    restart: always
+
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:
