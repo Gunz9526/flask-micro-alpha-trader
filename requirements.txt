@@ -9,12 +9,12 @@ celery
 redis
 flower
 
-scikit-learn
-prophet
-torch
+lightgbm
 prometheus-client
 psutil
 
+joblib
 python-dotenv
 requests
 pytest
+pytz

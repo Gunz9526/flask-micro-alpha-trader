@@ -5,6 +5,7 @@ WORKDIR /app
 # 시스템 패키지 설치
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    curl \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
