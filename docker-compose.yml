@@ -14,6 +14,8 @@ services:
       - redis
       - prometheus
     command: gunicorn --bind 0.0.0.0:5000 'app:create_app()'
+    networks:
+      - alpha-network
 
   celery_worker:
     build: .
@@ -26,6 +28,8 @@ services:
     depends_on: 
       - redis
     command: celery -A app.celery worker --loglevel=info
+    networks:
+      - alpha-network
 
   celery_beat:
     build: .
@@ -38,7 +42,19 @@ services:
     depends_on:
       - redis
     command: celery -A app.celery beat --loglevel=info
+    networks:
+      - alpha-network
 
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.74.0-alpine
+    container_name: alpha-trader-redis-exporter
+    restart: always
+    depends_on:
+      - redis
+    command: -redis.addr redis:6379
+    networks:
+      - alpha-network
+  
   flower:
     image: mher/flower
     container_name: alpha-trader-flower
@@ -50,6 +66,8 @@ services:
     depends_on:
       - redis
       - celery_worker
+    networks:
+      - alpha-network
 
   redis:
     image: redis:alpine
@@ -58,6 +76,8 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - alpha-network
 
   prometheus:
     image: prom/prometheus
@@ -68,22 +88,32 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     restart: always
+    networks:
+      - alpha-network
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:latest
     container_name: alpha-trader-grafana
     ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
     depends_on:
       - prometheus
     restart: always
+    networks:
+      - alpha-network
 
 volumes:
   redis_data:
   prometheus_data:
   grafana_data:
+
+networks:
+  alpha-network:
+    driver: bridge
