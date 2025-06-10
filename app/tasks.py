@@ -93,7 +93,7 @@ def smart_trading_pipeline(self):
 
 @celery.task(name="app.tasks.train_models_batch", bind=True)
 def train_models_batch(self):
-    current_app.logger.info("배치 모델 학습 시작")    
+    current_app.logger.info("배치 모델 학습 시작")
     try:
         ai_service = AIService()
         alpaca_service = AlpacaService()
@@ -104,7 +104,7 @@ def train_models_batch(self):
                 bars_df = alpaca_service.get_stock_bars(
                     symbol,
                     TimeFrame(1, TimeFrameUnit.Day),
-                    limit=250 
+                    limit=250
                 )
                 
                 if bars_df is None or len(bars_df) < 100:

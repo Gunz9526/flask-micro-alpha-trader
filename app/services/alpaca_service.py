@@ -4,7 +4,7 @@ from alpaca.data.historical.stock import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.data.enums import DataFeed
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import current_app
 import pandas as pd
 import os
@@ -14,13 +14,11 @@ class AlpacaService:
     def __init__(self):
         self.api_key = current_app.config.get("ALPACA_API_KEY") or os.environ.get("ALPACA_API_KEY")
         self.api_secret = current_app.config.get("ALPACA_API_SECRET") or os.environ.get("ALPACA_API_SECRET")
-        self.base_url = current_app.config.get("APCA_API_BASE_URL") or os.environ.get("APCA_API_BASE_URL", "https://paper-api.alpaca.markets")
         self.paper = str(current_app.config.get("ALPACA_PAPER", "True")).lower() in ('true', '1', 't')
 
         current_app.logger.info(f"Alpaca 설정 확인:")
         current_app.logger.info(f"- API Key: {self.api_key[:8]}..." if self.api_key else "- API Key: None")
         current_app.logger.info(f"- API Secret: {self.api_secret[:8]}..." if self.api_secret else "- API Secret: None")
-        current_app.logger.info(f"- Base URL: {self.base_url}")
         current_app.logger.info(f"- Paper Trading: {self.paper}")
 
         if not self.api_key or not self.api_secret:
@@ -45,9 +43,13 @@ class AlpacaService:
             self.data_client = StockHistoricalDataClient(
                 api_key=self.api_key,
                 secret_key=self.api_secret,
-                raw_data=False 
+                raw_data=False,
+                url_override='https://data.alpaca.markets',
+                sandbox=False
             )
             current_app.logger.info("Alpaca StockHistoricalDataClient 초기화 완료")
+            
+            current_app.logger.info(f"@@@@@@@StockHistoricalDataClient의 실제 사용 URL: {self.data_client._base_url}")
 
         except Exception as e:
             current_app.logger.error(f"Alpaca 클라이언트 초기화 실패: {e}", exc_info=True)
@@ -67,21 +69,11 @@ class AlpacaService:
                 "portfolio_value": float(account.portfolio_value),
                 "status": str(account.status),
                 "daytrade_count": getattr(account, 'daytrade_count', 0),
-                "last_equity": float(getattr(account, 'last_equity', account.portfolio_value)),
                 "equity": float(getattr(account, 'equity', account.portfolio_value)),
                 "long_market_value": float(getattr(account, 'long_market_value', 0)),
-                "short_market_value": float(getattr(account, 'short_market_value', 0)),
-                "initial_margin": float(getattr(account, 'initial_margin', 0)),
-                "maintenance_margin": float(getattr(account, 'maintenance_margin', 0)),
                 "pattern_day_trader": getattr(account, 'pattern_day_trader', False),
                 "trading_blocked": getattr(account, 'trading_blocked', False),
-                "transfers_blocked": getattr(account, 'transfers_blocked', False),
-                "regt_buying_power": float(getattr(account, 'regt_buying_power', account.buying_power)),
-                "daytrading_buying_power": float(getattr(account, 'daytrading_buying_power', account.buying_power)),
-                "non_marginable_buying_power": float(getattr(account, 'non_marginable_buying_power', account.cash)),
-                "accrued_fees": float(getattr(account, 'accrued_fees', 0)),
-                "pending_transfer_out": float(getattr(account, 'pending_transfer_out' ) or 0),
-                "sma": float(getattr(account, 'sma', 0))
+                "paper_trading": self.paper
             }
             
             current_app.logger.info(f"계정 정보 조회 성공: {account_details['account_number']}")
@@ -99,7 +91,7 @@ class AlpacaService:
         try:
             current_app.logger.info(f"바 데이터 요청 시작: {symbol}, {timeframe}, limit={limit}")
             
-            end_time = datetime.now()
+            end_time = datetime.now(timezone.utc)
             
             if timeframe.amount == 1 and timeframe.unit == TimeFrameUnit.Day:
                 start_time = end_time - timedelta(days=max(limit * 2, 365))
@@ -119,6 +111,7 @@ class AlpacaService:
                 adjustment='raw',
                 feed=DataFeed.IEX,
                 asof=None,
+                sort='desc'
             )
             
             current_app.logger.debug(f"요청 파라미터: start={start_time}, end={end_time}")
@@ -194,7 +187,6 @@ class AlpacaService:
                 "config_check": {
                     "api_key_set": bool(self.api_key),
                     "api_secret_set": bool(self.api_secret),
-                    "base_url": self.base_url,
                     "paper_trading": self.paper
                 },
                 "alpaca_api_version": "0.40.1"
