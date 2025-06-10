@@ -7,7 +7,9 @@ class Config:
     
     ALPACA_API_KEY = os.environ.get('ALPACA_API_KEY')
     ALPACA_API_SECRET = os.environ.get('ALPACA_API_SECRET')
-    APCA_API_BASE_URL = os.environ.get('APCA_API_BASE_URL', 'https://paper-api.alpaca.markets')
+    # APCA_API_BASE_URL = os.environ.get('APCA_API_BASE_URL', 'https://paper-api.alpaca.markets')
+    
+    # ALPACA_DATA_URL = os.environ.get('ALPACA_DATA_URL', 'https://data.alpaca.markets')
     ALPACA_PAPER = os.environ.get('ALPACA_PAPER', 'True').lower() in ('true', '1', 't')
     
     REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')

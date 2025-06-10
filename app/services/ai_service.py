@@ -130,10 +130,10 @@ class AIStrategy:
             
             return {
                 "status": "success",
-                "rmse": rmse,
-                "direction_accuracy": direction_acc,
-                "training_samples": len(X_train),
-                "validation_passed": direction_acc > 0.52
+                "rmse": float(rmse),
+                "direction_accuracy": float(direction_acc),
+                "training_samples": int(len(X_train)),
+                "validation_passed": bool(direction_acc > 0.52)
             }
             
         except Exception as e:
