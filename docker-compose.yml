@@ -6,14 +6,15 @@ services:
     ports:
       - "5000:5000"
       - "8000:8000" 
-    volumes:
-      - .:/app
     env_file:
-      - .env
+      - .env    
+    volumes:
+      - .:/app      
+      - prometheus_metrics_volume:/prometheus_metrics
     depends_on:
       - redis
       - prometheus
-    command: gunicorn --bind 0.0.0.0:5000 'app:create_app()'
+    command: gunicorn --bind 0.0.0.0:5000 -c /app/gunicorn_config.py 'app:create_app()'
     networks:
       - alpha-network
 
@@ -21,10 +22,11 @@ services:
     build: .
     container_name: alpha-trader-celery
     restart: always
+    env_file:
+      - .env      
     volumes:
       - .:/app
-    env_file:
-      - .env
+      - prometheus_metrics_volume:/prometheus_metrics
     depends_on: 
       - redis
     command: celery -A app.celery worker --loglevel=info
@@ -35,10 +37,11 @@ services:
     build: .
     container_name: alpha-trader-celery-beat
     restart: always
-    volumes:
-      - .:/app
     env_file:
-      - .env
+      - .env      
+    volumes:
+      - .:/app      
+      - prometheus_metrics_volume:/prometheus_metrics
     depends_on:
       - redis
     command: celery -A app.celery beat --loglevel=info
@@ -102,7 +105,6 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=grafana-piechart-panel
     depends_on:
       - prometheus
     restart: always
@@ -113,6 +115,7 @@ volumes:
   redis_data:
   prometheus_data:
   grafana_data:
+  prometheus_metrics_volume:
 
 networks:
   alpha-network:

@@ -5,8 +5,9 @@ from dotenv import load_dotenv
 import logging
 from logging.handlers import RotatingFileHandler
 from .config import config
-from .middleware import setup_metrics_middleware
-from .services.metrics_service import get_metrics_service
+# from .middleware import setup_metrics_middleware
+# from .services.metrics_service import get_metrics_service
+from prometheus_flask_exporter.multiprocess import MultiprocessInternalPrometheusMetrics
 
 load_dotenv()
 
@@ -42,15 +43,17 @@ class FlaskTask(CeleryTask):
         
 celery.Task = FlaskTask
 
+
 def create_app() -> Flask:
     app = Flask(__name__)
     
     flask_config_name = os.environ.get('FLASK_ENV', 'default')
     app.config.from_object(config[flask_config_name])
     app.extensions["celery"] = celery
-
+    MultiprocessInternalPrometheusMetrics(app)
+    
     setup_logging(app)
-    setup_metrics_middleware(app)
+    # setup_metrics_middleware(app)
 
     from . import tasks
     register_routes(app, tasks)
@@ -310,10 +313,11 @@ def register_routes(app, tasks):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    @app.route('/metrics')
-    def metrics():
-        metrics_service = get_metrics_service()
-        return metrics_service.get_metrics(), 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    # @app.route('/metrics')
+    # def metrics():
+    #     metrics_service = get_metrics_service()     
+    #     return metrics_service.get_metrics(), 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    
 
     @app.route('/api/metrics/update')
     def trigger_metrics_update():
@@ -394,4 +398,20 @@ def register_routes(app, tasks):
         return jsonify({
             "task_id": task_result.id,
             "status": "signal_generation_started"
+        })
+
+    @app.route('/api/training/retrain', methods=['POST'])
+    def retrain_models():
+        """지정된 종목 리스트에 대해서만 모델을 재학습시킵니다."""
+        data = request.get_json()
+        if not data or 'symbols' not in data:
+            return jsonify({"error": "요청 본문에 'symbols' 리스트가 필요합니다."}), 400
+        
+        symbols_to_train = data['symbols']
+        task_result = tasks.train_specific_models.delay(symbols=symbols_to_train)
+        
+        return jsonify({
+            "task_id": task_result.id,
+            "status": "retraining_started",
+            "symbols": symbols_to_train
         })

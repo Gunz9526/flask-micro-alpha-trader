@@ -14,7 +14,7 @@ class TradingService:
         self.trading_client = self.alpaca_service.trading_client
         self.risk_manager = RiskManager()
         
-    def execute_ai_signal(self, symbol: str, signal: str, confidence: float) -> Dict[str, Any]:
+    def execute_ai_signal(self, symbol: str, signal: str, confidence: float, ai_signal_result: Dict) -> Dict[str, Any]:
         try:
             current_app.logger.info(f"시그널 실행 시작: {symbol} {signal} ({confidence:.1%})")
             
@@ -36,7 +36,7 @@ class TradingService:
                 return {"status": "blocked", "reason": daily_check["reason"]}
             
             if signal == "BUY":
-                return self._execute_buy_order(symbol, confidence, account_info)
+                return self._execute_buy_order(symbol, confidence, account_info, ai_signal_result)
             elif signal == "SELL":
                 return self._execute_sell_order(symbol, confidence)
             else:
@@ -46,46 +46,29 @@ class TradingService:
             current_app.logger.error(f"시그널 실행 오류: {e}")
             return {"status": "error", "reason": str(e)}
     
-    def _execute_buy_order(self, symbol: str, confidence: float, account_info: Dict) -> Dict:
+    def _execute_buy_order(self, symbol: str, confidence: float, account_info: Dict, ai_signal_result: Dict) -> Dict:
         try:
             portfolio_value = float(account_info['portfolio_value'])
             current_price = self.alpaca_service.get_current_price(symbol)
-            
-            if not current_price:
-                return {"status": "error", "reason": "price_unavailable"}
+            if not current_price: return {"status": "error", "reason": "price_unavailable"}
+
+            latest_volatility = ai_signal_result.get('latest_features', {}).get('volatility_20d', 0.02)
             
             position_risk = self.risk_manager.check_position_risk(
-                symbol, "BUY", confidence, current_price, portfolio_value
+                symbol, confidence, portfolio_value, latest_volatility
             )
+            if not position_risk["approved"]: return {"status": "blocked", "reason": "position_risk_failed"}
+
+            position_size = position_risk["position_size"]
+            investment_amount = portfolio_value * position_size
+            shares = int(investment_amount / current_price)
+            if shares <= 0: return {"status": "skipped", "reason": "insufficient_shares"}
+
+            current_positions = self.get_positions().get("positions", [])
+            portfolio_risk = self.risk_manager.check_portfolio_risk(investment_amount, current_positions, portfolio_value)
+            if not portfolio_risk["approved"]: return {"status": "blocked", "reason": portfolio_risk["reason"]}
             
-            if not position_risk["approved"]:
-                return {"status": "blocked", "reason": "position_risk_failed"}
-            
-            current_positions = self.get_positions()["positions"]
-            
-            portfolio_risk = self.risk_manager.check_portfolio_risk(
-                {
-                    "symbol": symbol,
-                    "investment_amount": position_risk["investment_amount"],
-                    "portfolio_value": portfolio_value
-                },
-                current_positions
-            )
-            
-            if not portfolio_risk["approved"]:
-                return {"status": "blocked", "reason": portfolio_risk["reason"]}
-            
-            shares = position_risk["shares"]
-            if shares <= 0:
-                return {"status": "skipped", "reason": "insufficient_shares"}
-            
-            order_result = self._place_market_order(symbol, "BUY", shares)
-            
-            if order_result["status"] == "success":
-                order_result["risk_info"] = position_risk
-            
-            return order_result
-            
+            return self._place_market_order(symbol, "BUY", shares)
         except Exception as e:
             return {"status": "error", "reason": str(e)}
     

@@ -18,9 +18,13 @@ class Config:
     
     DISCORD_WEBHOOK_URL = os.environ.get('DISCORD_WEBHOOK_URL')
     
-    AI_MODEL_TYPE = os.environ.get('AI_MODEL_TYPE', 'lightgbm')  # lightgbm, randomforest
-    AI_MIN_DATA_POINTS = int(os.environ.get('AI_MIN_DATA_POINTS', '30'))  # LightGBM은 더 적은 데이터로 가능
-    AI_CONFIDENCE_THRESHOLD = float(os.environ.get('AI_CONFIDENCE_THRESHOLD', '0.65'))  # 65% 이상
+    AI_MODEL_TYPE = os.environ.get('AI_MODEL_TYPE', 'lightgbm')
+    AI_MIN_DATA_POINTS = int(os.environ.get('AI_MIN_DATA_POINTS', '30')) 
+    AI_CONFIDENCE_THRESHOLD = float(os.environ.get('AI_CONFIDENCE_THRESHOLD', '0.65'))
+    AI_SIGNAL_BUY_THRESHOLD = float(os.environ.get('AI_SIGNAL_BUY_THRESHOLD', '0.005'))
+    AI_SIGNAL_SELL_THRESHOLD = float(os.environ.get('AI_SIGNAL_SELL_THRESHOLD', '-0.005'))
+    AI_CONFIDENCE_THRESHOLD = float(os.environ.get('AI_CONFIDENCE_THRESHOLD', '0.6'))
+    
 
 class DevelopmentConfig(Config):
     DEBUG = True

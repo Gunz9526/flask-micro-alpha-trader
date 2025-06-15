@@ -2,64 +2,58 @@ from typing import Dict, List, Optional
 from flask import current_app
 import numpy as np
 from datetime import datetime, timedelta
+import redis
+
 
 class RiskManager:
     def __init__(self):
-        self.max_portfolio_risk = 0.02
-        self.max_position_size = 0.05
-        self.max_sector_exposure = 0.3
-        self.max_correlation = 0.7
-        self.stop_loss = 0.05
-        self.max_drawdown = 0.1
+        self.max_position_size = float('0.10')  # 종목당 최대 10%
+        self.max_portfolio_exposure = float('0.80')  # 총 투자 비중 80%
+        self.max_positions = float('7')  # 최대 보유 종목 수 7개
+        self.stop_loss = float('0.05')  # -5% 손절
+        self.take_profit = float('0.10')  # +10% 익절
+        self.volatility_target = float('0.015')  # 목표 변동성 1.5%
+    
+        self.redis_client = redis.from_url(current_app.config['REDIS_URL'])
+
         
-        self.daily_pnl = []
-        self.positions_history = []
-        self.is_trading_halted = False
-        
-    def check_position_risk(self, symbol: str, signal: str, confidence: float, 
-                          current_price: float, portfolio_value: float) -> Dict:
+
+    def check_position_risk(self, symbol: str, confidence: float, portfolio_value: float, volatility: float) -> Dict:
         try:
+            volatility_factor = max(volatility / self.volatility_target, 1.0)
+            
             base_size = self.max_position_size * confidence
             
-            volatility_factor = self._get_volatility_factor(symbol)
-            adjusted_size = base_size / max(volatility_factor, 1.0)
+            adjusted_size = base_size / volatility_factor
             
             position_size = min(adjusted_size, self.max_position_size)
             
-            investment_amount = portfolio_value * position_size
-            shares = int(investment_amount / current_price)
-            
-            return {
-                "approved": True,
-                "shares": shares,
-                "position_size": position_size,
-                "investment_amount": shares * current_price,
-                "risk_adjusted": volatility_factor > 1.5
-            }
-            
+            return {"approved": True, "position_size": position_size}
+        
         except Exception as e:
             current_app.logger.error(f"포지션 리스크 체크 오류: {e}")
             return {"approved": False, "reason": str(e)}
-    
-    def check_portfolio_risk(self, new_position: Dict, current_positions: List[Dict]) -> Dict:
-        try:
-            total_exposure = sum(pos.get('market_value', 0) for pos in current_positions)
-            new_exposure = new_position.get('investment_amount', 0)
+
+    def check_portfolio_risk(self, new_position_value: float, current_positions: List[Dict], portfolio_value: float) -> Dict:
+        if len(current_positions) >= self.max_positions:
+            return {"approved": False, "reason": f"max_positions_exceeded ({self.max_positions})"}
+        
+        total_value = sum(pos.get('market_value', 0) for pos in current_positions)
+        if (total_value + new_position_value) / portfolio_value > self.max_portfolio_exposure:
+            return {"approved": False, "reason": f"max_exposure_exceeded ({self.max_portfolio_exposure:.0%})"}
             
-            if (total_exposure + new_exposure) / new_position.get('portfolio_value', 1) > 0.8:
-                return {"approved": False, "reason": "max_exposure_exceeded"}
+        return {"approved": True}
+
+    def should_close_position(self, position: Dict) -> Dict:
+        unrealized_pnl_pct = position.get('unrealized_plpc', 0)
+        
+        if unrealized_pnl_pct < self.stop_loss_pct:
+            return {"should_close": True, "reason": "stop_loss"}
             
-            if len(current_positions) >= 10:
-                return {"approved": False, "reason": "max_positions_exceeded"}
+        if unrealized_pnl_pct > self.take_profit_pct:
+            return {"should_close": True, "reason": "take_profit", "close_ratio": 0.5}
             
-            symbol = new_position.get('symbol')
-            if any(pos.get('symbol') == symbol for pos in current_positions):
-                return {"approved": False, "reason": "duplicate_position"}
-            
-            return {"approved": True}
-            
-        except Exception as e:
-            return {"approved": False, "reason": str(e)}
+        return {"should_close": False}
     
     def check_daily_limits(self, portfolio_value: float) -> Dict:
         if self.is_trading_halted:
@@ -86,31 +80,6 @@ class RiskManager:
         if symbol in high_vol_symbols:
             return 2.0
         return 1.0
-    
-    def should_close_position(self, position: Dict) -> Dict:
-        try:
-            unrealized_pnl_pct = position.get('unrealized_plpc', 0)
-            
-            if unrealized_pnl_pct < -self.stop_loss:
-                return {
-                    "should_close": True,
-                    "reason": "stop_loss",
-                    "urgency": "high"
-                }
-            
-            if unrealized_pnl_pct > 0.2:
-                return {
-                    "should_close": True,
-                    "reason": "take_profit",
-                    "urgency": "medium",
-                    "partial": True,
-                    "close_ratio": 0.5
-                }
-            
-            return {"should_close": False}
-            
-        except Exception as e:
-            return {"should_close": False, "error": str(e)}
     
     def reset_daily_limits(self):
         self.is_trading_halted = False

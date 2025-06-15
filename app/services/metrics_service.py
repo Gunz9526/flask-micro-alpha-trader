@@ -1,4 +1,5 @@
-from prometheus_client import Counter, Histogram, Gauge, Info, CollectorRegistry, generate_latest
+import os
+from prometheus_client import Counter, Histogram, Gauge, Info, CollectorRegistry, generate_latest, multiprocess
 from flask import current_app
 import psutil
 import time
@@ -9,7 +10,13 @@ class MetricsService:
     """Prometheus 메트릭 수집 서비스"""
     
     def __init__(self):
-        self.registry = CollectorRegistry()
+        metrics_dir = os.environ.get('PROMETHEUS_MULTIPROC_DIR')
+        if metrics_dir and not os.path.exists(metrics_dir):
+            os.makedirs(metrics_dir)
+            
+        registry = CollectorRegistry()
+        multiprocess.MultiProcessCollector(registry)
+        self.registry = registry
         
         self.trading_signals_total = Counter(
             'trading_signals_total',
