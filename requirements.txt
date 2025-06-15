@@ -9,8 +9,10 @@ celery
 redis
 flower
 
+XGBoost
 lightgbm
 prometheus-client
+prometheus-flask-exporter
 psutil
 
 joblib
