@@ -12,7 +12,7 @@ beat_schedule = {
     
     'smart-trading-pipeline': {
         'task': 'app.tasks.smart_trading_pipeline',
-        'schedule': crontab(minute='*/10', hour='13-21', day_of_week='mon-fri'),
+        'schedule': crontab(minute='*/5', hour='13-21', day_of_week='mon-fri'),
     },
     
     'daily-report': {
@@ -27,6 +27,14 @@ beat_schedule = {
     
     'weekend-full-retraining': {
         'task': 'app.tasks.train_models_batch',
-        'schedule': crontab(hour=8, minute=0, day_of_week='sat'), # 토요일로 변경
+        'schedule': crontab(hour=8, minute=0, day_of_week='mon-fri'),
     },
+    'nightly-parameter-optimization': {
+        'task': 'app.tasks.optimize_hyperparameters_for_watchlist',
+        'schedule': crontab(hour=5, minute=0, day_of_week='mon-fri'),
+    },
+    'reset-daily-limits': {
+    'task': 'app.tasks.reset_risk_limits',
+    'schedule': crontab(hour=1, minute=0),
+},
 }

@@ -1,17 +1,24 @@
+
+import glob
+import json
+import os
+import requests
+import psutil
+import pytz
+from datetime import datetime
+
+from flask import current_app
+from prometheus_client import Gauge, Counter
+from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+
+from .services.optimizer_service import HyperparameterOptimizer
 from . import celery
 from .services.alpaca_service import AlpacaService
 from .services.ai_service import AIService
 from .services.trading_service import TradingService
 from .services.metrics_service import get_metrics_service
-from flask import current_app
-from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
-import os
-import requests
-import psutil
+from .services.risk_manager import RiskManager
 
-from prometheus_client import Gauge, Counter
-from datetime import datetime
-import pytz
 
 WATCHLIST = ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'SPY', 'NVDA', 'AMZN', 'META', 'NFLX', 'AMD', 'JNJ', 'UNH', 'JPM', 'PG', 'CAT', 'XOM', 'V', 'MA', 'DIS', 'HD', 'KO', 'PEP', 'INTC', 'CSCO', 'CMCSA', 'VZ', 'T', 'MRK', 'PFE', 'ABT', 'NKE', 'WMT']
 PORTFOLIO_VALUE = Gauge('portfolio_value_usd', 'Current portfolio value in USD', multiprocess_mode='max')
@@ -46,10 +53,12 @@ def smart_trading_pipeline(self):
             current_app.logger.warning(f"손절매 실행: {len(stop_loss_results)}건")
             trade_results.extend(stop_loss_results)
         
-        available_symbols = [
-            symbol for symbol in WATCHLIST 
-            if os.path.exists(f"models/{symbol}_model_0.pkl")
-        ]
+        available_symbols = []
+        for symbol in WATCHLIST:
+            model_files = glob.glob(f"models/{symbol}_*.pkl")
+            if model_files:
+                available_symbols.append(symbol)
+    
         
         if not available_symbols:
             current_app.logger.warning("학습된 모델이 없음")
@@ -114,23 +123,42 @@ def smart_trading_pipeline(self):
 def train_models_batch(self):
     current_app.logger.info("배치 모델 학습 시작")
     try:
+        alpaca_service = AlpacaService()        
         ai_service = AIService()
-        alpaca_service = AlpacaService()
         results = []
         
         for symbol in WATCHLIST:
             try:
+                best_params_map = {}
+                
+                for model_name, config in ai_service.model_classes.items():
+                    StrategyClass = config['class']
+                    
+                    temp_strategy = StrategyClass(symbol=symbol, random_state=0)
+                    model_type = temp_strategy.model_type
+                    
+                    params_path = os.path.join("best_params", f"{symbol}_{StrategyClass.__name__}.json")
+                    
+                    if os.path.exists(params_path):
+                        try:
+                            with open(params_path, 'r') as f:
+                                best_params_map[model_type] = json.load(f)
+                                current_app.logger.info(f"[{symbol}] 파일에서 {model_type} 최적 파라미터 로드: {params_path}")
+                        except Exception as e:
+                            current_app.logger.warning(f"[{symbol}] {model_type} 파라미터 파일 로드 실패: {e}", exc_info=True)
+                
+          
                 bars_df = alpaca_service.get_stock_bars(
                     symbol,
                     TimeFrame(1, TimeFrameUnit.Day),
                     limit=500
                 )
                 
-                if bars_df is None or len(bars_df) < 100:
+                if bars_df is None or len(bars_df) < 200:
                     current_app.logger.warning(f"{symbol} 데이터 부족")
                     continue
                 
-                result = ai_service.train_strategy(symbol, bars_df)
+                result = ai_service.train_strategy(symbol, bars_df, best_params_map)
                 results.append({"symbol": symbol, "result": result})
                 
                 if result.get("validation_passed"):
@@ -138,18 +166,23 @@ def train_models_batch(self):
                 else:
                     current_app.logger.warning(f"{symbol} 모델 검증 실패")
                 
-                import time
+                # import time
                 # time.sleep(5)
                     
             except Exception as e:
                 current_app.logger.error(f"{symbol} 학습 오류: {e}")
                 continue
         
-        successful_models = len([r for r in results if r["result"].get("validation_passed")])
+        successful_models = 0
+        for result in results:
+            if result.get("result", {}).get("status") == "success":
+                successful_models += result["result"].get("successful_models", 0)
+
+        total_models = len(WATCHLIST) * len(ai_service.model_classes)
         
         send_notification.delay(
             f"모델 학습 완료\n"
-            f"성공: {successful_models}/{len(WATCHLIST)}개"
+            f"성공: {successful_models}/{total_models}개"
         )
         
         return {"status": "completed", "results": results}
@@ -262,3 +295,43 @@ def update_portfolio_metrics():
             ACTIVE_POSITIONS.set(0.0)
     except Exception as e:
         current_app.logger.error(f"포트폴리오 메트릭 업데이트 오류: {e}", exc_info=True)
+
+@celery.task(name="app.tasks.optimize_hyperparameters_for_watchlist")
+def optimize_hyperparameters_for_watchlist():
+    
+    from .services.ai_service import AIService, LightGBMStrategy, XGBoostStrategy
+    current_app.logger.info("하이퍼파라미터 최적화 파이프라인 시작")
+    alpaca_service = AlpacaService()
+    
+    strategies_to_optimize = {
+        'lgbm': LightGBMStrategy,
+        'xgb': XGBoostStrategy
+    }
+
+    for symbol in WATCHLIST:
+        try:
+            current_app.logger.info(f"[{symbol}] 최적화 데이터 로드 중...")
+            bars_df = alpaca_service.get_stock_bars(
+                symbol, TimeFrame(1, TimeFrameUnit.Day), limit=500
+            )
+            if bars_df is None or len(bars_df) < 200:
+                current_app.logger.warning(f"[{symbol}] 데이터 부족으로 최적화 건너뜀")
+                continue
+            
+            optimizer = HyperparameterOptimizer(symbol, bars_df)
+            
+            for model_type, StrategyClass in strategies_to_optimize.items():
+                temp_strategy_instance = StrategyClass(symbol=symbol)
+                optimizer.optimize(temp_strategy_instance, n_trials=100)
+
+        except Exception as e:
+            current_app.logger.error(f"[{symbol}] 최적화 중 심각한 오류 발생: {e}", exc_info=True)
+            continue
+            
+    current_app.logger.info("하이퍼파라미터 최적화 파이프라인 완료")
+    return {"status": "completed", "message": "모든 종목에 대한 하이퍼파라미터 최적화 완료"}
+
+@celery.task(name="app.tasks.reset_risk_limits")
+def reset_risk_limits():
+    risk_manager = RiskManager()
+    risk_manager.reset_daily_limits()

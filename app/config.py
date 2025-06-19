@@ -24,6 +24,15 @@ class Config:
     AI_SIGNAL_BUY_THRESHOLD = float(os.environ.get('AI_SIGNAL_BUY_THRESHOLD', '0.005'))
     AI_SIGNAL_SELL_THRESHOLD = float(os.environ.get('AI_SIGNAL_SELL_THRESHOLD', '-0.005'))
     AI_CONFIDENCE_THRESHOLD = float(os.environ.get('AI_CONFIDENCE_THRESHOLD', '0.6'))
+
+    RISK_MAX_PORTFOLIO_EXPOSURE = float(os.environ.get('RISK_MAX_PORTFOLIO_EXPOSURE', '0.80'))
+    RISK_MAX_POSITIONS = int(os.environ.get('RISK_MAX_POSITIONS', '7'))
+    RISK_MAX_DAILY_LOSS = float(os.environ.get('RISK_MAX_DAILY_LOSS', '-0.02'))
+
+    RISK_MAX_POSITION_SIZE = float(os.environ.get('RISK_MAX_POSITION_SIZE', '0.10'))
+    RISK_VOLATILITY_TARGET = float(os.environ.get('RISK_VOLATILITY_TARGET', '0.015'))
+    RISK_STOP_LOSS_PCT = float(os.environ.get('RISK_STOP_LOSS_PCT', '-0.05'))
+    RISK_TAKE_PROFIT_PCT = float(os.environ.get('RISK_TAKE_PROFIT_PCT', '0.10'))
     
 
 class DevelopmentConfig(Config):

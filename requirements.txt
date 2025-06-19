@@ -9,6 +9,7 @@ celery
 redis
 flower
 
+optuna
 XGBoost
 lightgbm
 prometheus-client

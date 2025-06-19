@@ -137,6 +137,8 @@ env.bak/
 venv.bak/
 sftp.json
 .vscode/
+/models/
+/best_params/
 
 # Spyder project settings
 .spyderproject
