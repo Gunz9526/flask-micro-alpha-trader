@@ -415,3 +415,12 @@ def register_routes(app, tasks):
             "status": "retraining_started",
             "symbols": symbols_to_train
         })
+    
+    @app.route('/api/hyperparameter/optimize/')
+    def optimize_hyperparameters():
+        task_result = tasks.optimize_hyperparameters_for_watchlist.delay()
+        return jsonify({
+            "task_id": task_result.id,
+            "status": task_result['status'],
+            "message": task_result['message']
+        })
