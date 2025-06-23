@@ -3,11 +3,15 @@ import numpy as np
 import pandas as pd
 import lightgbm as lgb
 import xgboost as xgb
+from sklearn.ensemble import RandomForestRegressor
+from statsmodels.tsa.arima.model import ARIMA
 from flask import current_app
 from typing import Dict, Tuple, List
 import joblib
 import os
 from datetime import datetime
+
+
 
 class SimpleScaler:
     def __init__(self):
@@ -109,7 +113,7 @@ class LightGBMStrategy(BaseModel):
             if override_params:
                 optimize_params.update(override_params)
             else:
-                params_path = os.path.join("best_params", f"{self.symbol}_{self.model_type}.json")
+                params_path = os.path.join("best_params", f"{self.symbol}_LightGBMStrategy.json")
                 if os.path.exists(params_path):
                     try:
                         with open(params_path, 'r') as f:
@@ -185,7 +189,7 @@ class XGBoostStrategy(BaseModel):
             if override_params:
                 optimize_params.update(override_params)
             else:
-                params_path = os.path.join("best_params", f"{self.symbol}_{self.model_type}.json")
+                params_path = os.path.join("best_params", f"{self.symbol}_XGBoostStrategy.json")
                 if os.path.exists(params_path):
                     try:
                         with open(params_path, 'r') as f:

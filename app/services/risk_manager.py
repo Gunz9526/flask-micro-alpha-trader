@@ -81,7 +81,7 @@ class RiskManager:
         # 다음 날 계산을 위해 현재 가치를 저장합니다.
         self.redis_client.set(redis_key, portfolio_value)
 
-    def reset_daily_limits(self):]
+    def reset_daily_limits(self):
         self.is_trading_halted = False
         self.redis_client.set('daily_pnl', 0.0)
         current_app.logger.info("일일 거래 한도 및 PnL 초기화 완료")

@@ -1,3 +1,4 @@
+import json
 from flask import Flask, jsonify, request
 from celery import Celery, Task as CeleryTask
 import os
@@ -424,3 +425,110 @@ def register_routes(app, tasks):
             "status": task_result['status'],
             "message": task_result['message']
         })
+    
+    @app.route('/api/optimization/status')
+    def get_optimization_status():
+        """최적화 파라미터 사용 현황 확인"""
+        try:
+            from .services.ai_service import AIService
+            
+            ai_service = AIService()
+            status = {
+                "optimization_files": {},
+                "model_files": {},
+                "summary": {
+                    "symbols_with_optimization": 0,
+                    "symbols_with_models": 0,
+                    "total_optimization_files": 0,
+                    "total_model_files": 0
+                }
+            }
+            
+            import glob
+            optimization_files = glob.glob("best_params/*.json")
+            for file_path in optimization_files:
+                filename = os.path.basename(file_path)
+                parts = filename.replace('.json', '').split('_', 1)
+                if len(parts) == 2:
+                    symbol, model_class = parts
+                    if symbol not in status["optimization_files"]:
+                        status["optimization_files"][symbol] = []
+                    status["optimization_files"][symbol].append(model_class)
+            
+            model_files = glob.glob("models/*.pkl")
+            for file_path in model_files:
+                filename = os.path.basename(file_path)
+                if not filename.endswith('_scaler.pkl'):
+                    parts = filename.replace('.pkl', '').split('_', 1)
+                    if len(parts) == 2:
+                        symbol, model_name = parts
+                        if symbol not in status["model_files"]:
+                            status["model_files"][symbol] = []
+                        status["model_files"][symbol].append(model_name)
+            
+            status["summary"]["symbols_with_optimization"] = len(status["optimization_files"])
+            status["summary"]["symbols_with_models"] = len(status["model_files"])
+            status["summary"]["total_optimization_files"] = len(optimization_files)
+            status["summary"]["total_model_files"] = len([f for f in model_files if not f.endswith('_scaler.pkl')])
+            
+            return jsonify(status)
+            
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/optimization/validate/<symbol>')
+    def validate_optimization_usage(symbol: str):
+        """특정 종목의 최적화 파라미터 사용 검증"""
+        try:
+            from .services.ai_service import AIService, LightGBMStrategy, XGBoostStrategy
+            
+            symbol = symbol.upper()
+            validation_result = {
+                "symbol": symbol,
+                "optimization_files": {},
+                "load_test": {},
+                "recommendations": []
+            }
+            
+            for strategy_class in [LightGBMStrategy, XGBoostStrategy]:
+                class_name = strategy_class.__name__
+                params_path = os.path.join("best_params", f"{symbol}_{class_name}.json")
+                
+                validation_result["optimization_files"][class_name] = {
+                    "exists": os.path.exists(params_path),
+                    "path": params_path
+                }
+                
+                if os.path.exists(params_path):
+                    try:
+                        with open(params_path, 'r') as f:
+                            params = json.load(f)
+                            validation_result["optimization_files"][class_name]["params_count"] = len(params)
+                            validation_result["optimization_files"][class_name]["params"] = params
+                    except Exception as e:
+                        validation_result["optimization_files"][class_name]["error"] = str(e)
+            
+            ai_service = AIService()
+            for model_name, config in ai_service.model_classes.items():
+                StrategyClass = config['class']
+                class_name = StrategyClass.__name__
+                
+                strategy = StrategyClass(symbol=symbol, random_state=42)
+                model_type = strategy.model_type
+                
+                validation_result["load_test"][model_name] = {
+                    "class_name": class_name,
+                    "model_type": model_type,
+                    "optimization_available": validation_result["optimization_files"][class_name]["exists"]
+                }
+            
+            missing_optimizations = [k for k, v in validation_result["optimization_files"].items() if not v["exists"]]
+            if missing_optimizations:
+                validation_result["recommendations"].append(f"최적화 누락: {', '.join(missing_optimizations)}")
+            else:
+                validation_result["recommendations"].append("모든 모델에 대한 최적화 파라미터 사용 가능")
+            
+            return jsonify(validation_result)
+            
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500

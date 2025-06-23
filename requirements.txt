@@ -12,6 +12,9 @@ flower
 optuna
 XGBoost
 lightgbm
+scikit-learn
+statsmodels
+
 prometheus-client
 prometheus-flask-exporter
 psutil

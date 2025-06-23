@@ -134,20 +134,25 @@ def train_models_batch(self):
                 for model_name, config in ai_service.model_classes.items():
                     StrategyClass = config['class']
                     
-                    temp_strategy = StrategyClass(symbol=symbol, random_state=0)
-                    model_type = temp_strategy.model_type
+                    class_name = StrategyClass.__name__
                     
-                    params_path = os.path.join("best_params", f"{symbol}_{StrategyClass.__name__}.json")
+                    params_path = os.path.join("best_params", f"{symbol}_{class_name}.json")
                     
                     if os.path.exists(params_path):
                         try:
                             with open(params_path, 'r') as f:
-                                best_params_map[model_type] = json.load(f)
-                                current_app.logger.info(f"[{symbol}] 파일에서 {model_type} 최적 파라미터 로드: {params_path}")
+                                loaded_params = json.load(f)
+                                
+                                temp_strategy = StrategyClass(symbol=symbol, random_state=0)
+                                model_type = temp_strategy.model_type
+                                best_params_map[model_type] = loaded_params
+                                
+                                current_app.logger.info(f"[{symbol}] {class_name} → {model_type} 파라미터 로드 성공: {len(loaded_params)}개")
+                                current_app.logger.debug(f"[{symbol}] {model_type} 파라미터: {loaded_params}")
                         except Exception as e:
                             current_app.logger.warning(f"[{symbol}] {model_type} 파라미터 파일 로드 실패: {e}", exc_info=True)
                 
-          
+                current_app.logger.info(f"[{symbol}] 최적 파라미터 완료: {list(best_params_map.keys())}")
                 bars_df = alpaca_service.get_stock_bars(
                     symbol,
                     TimeFrame(1, TimeFrameUnit.Day),
@@ -159,9 +164,9 @@ def train_models_batch(self):
                     continue
                 
                 result = ai_service.train_strategy(symbol, bars_df, best_params_map)
-                results.append({"symbol": symbol, "result": result})
+                results.append({"symbol": symbol, "result": result, "optimized_params": list(best_params_map.keys())})
                 
-                if result.get("validation_passed"):
+                if result.get("status") == "success":
                     current_app.logger.info(f"{symbol} 모델 학습 성공")
                 else:
                     current_app.logger.warning(f"{symbol} 모델 검증 실패")
@@ -173,19 +178,39 @@ def train_models_batch(self):
                 current_app.logger.error(f"{symbol} 학습 오류: {e}")
                 continue
         
-        successful_models = 0
+        successful_symbols = 0
+        total_successful_models = 0
+        optimized_symbols = []
+        
         for result in results:
             if result.get("result", {}).get("status") == "success":
-                successful_models += result["result"].get("successful_models", 0)
+                successful_symbols += 1
+                total_successful_models += result["result"].get("successful_models", 0)
+                if result.get("optimized_params"):
+                    optimized_symbols.append(result["symbol"])
 
-        total_models = len(WATCHLIST) * len(ai_service.model_classes)
+        total_attempted = len(WATCHLIST) * len(ai_service.model_classes)
         
-        send_notification.delay(
+        summary_message = (
             f"모델 학습 완료\n"
-            f"성공: {successful_models}/{total_models}개"
+            f"성공 종목: {successful_symbols}/{len(WATCHLIST)}\n"
+            f"성공 모델: {total_successful_models}/{total_attempted}\n"
+            f"최적화 활용: {len(optimized_symbols)}개 종목"
         )
         
-        return {"status": "completed", "results": results}
+        send_notification.delay(summary_message)
+        current_app.logger.info(f"배치 학습 완료: {summary_message}")
+        
+        return {
+            "status": "completed", 
+            "results": results,
+            "summary": {
+                "successful_symbols": successful_symbols,
+                "total_successful_models": total_successful_models,
+                "optimized_symbols": optimized_symbols,
+                "total_attempted": total_attempted
+            }
+        }
         
     except Exception as e:
         current_app.logger.error(f"배치 학습 오류: {e}")
