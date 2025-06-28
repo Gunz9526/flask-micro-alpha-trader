@@ -17,6 +17,7 @@ from .services.alpaca_service import AlpacaService
 from .services.ai_service import AIService
 from .services.trading_service import TradingService
 from .services.metrics_service import get_metrics_service
+from .services.database_service import DatabaseService
 from .services.risk_manager import RiskManager
 
 
@@ -33,7 +34,6 @@ def smart_trading_pipeline(self):
     current_app.logger.info("자동 트레이딩 파이프라인 시작")
     
     if not is_market_open():
-        current_app.logger.info("시장 폐장 - 트레이딩 건너뜀")
         return {"status": "skipped", "reason": "market_closed"}
     
     try:
@@ -46,7 +46,9 @@ def smart_trading_pipeline(self):
 
     trade_results = []
     all_decisions = []
-    
+    buy_symbols = []
+    sell_symbols = []
+
     try:
         stop_loss_results = trading_service.check_stop_losses()
         if stop_loss_results:
@@ -76,8 +78,21 @@ def smart_trading_pipeline(self):
                     continue
                 
                 signal_result = ai_service.get_trading_signal(symbol, bars_df)
+
+                metrics_service = get_metrics_service()
+                metrics_service.record_ai_prediction(
+                    symbol=symbol,
+                    model_type='ensemble',
+                    confidence=signal_result.get('confidence', 0.0)
+                )
+
                 all_decisions.append(signal_result)
                 
+                if signal_result['signal'] == 'BUY':
+                    buy_symbols.append(symbol)
+                elif signal_result['signal'] == 'SELL':
+                    sell_symbols.append(symbol)
+
                 current_app.logger.info(
                     f"[{symbol}] AI 신호 결과: "
                     f"Signal={signal_result['signal']}, "
@@ -108,7 +123,9 @@ def smart_trading_pipeline(self):
             except Exception as e:
                 current_app.logger.error(f"[{symbol}] 처리 중 오류 발생: {e}", exc_info=True)
                 continue
-        
+        current_app.logger.info(f"BUY 신호 : {buy_symbols}")
+        current_app.logger.info(f"SELL 신호 : {sell_symbols}")
+
         successful_trades = len([r for r in trade_results if r.get("status") == "success"])
         
         return {"status": "completed", "trade_results": trade_results,
@@ -263,18 +280,19 @@ def send_daily_report():
 
 def is_market_open() -> bool:
     try:
-        et = pytz.timezone('US/Eastern')
-        now = datetime.now(et)
+        alpaca_service = AlpacaService()
         
-        if now.weekday() >= 5:
+        clock = alpaca_service.trading_client.get_clock()
+        
+        if clock.is_open:
+            current_app.logger.debug("시장 상태 확인: 열림")
+            return True
+        else:
+            current_app.logger.debug("시장 상태 확인: 닫힘")
             return False
-        
-        market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
-        market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
-        
-        return market_open <= now <= market_close
+            
     except Exception as e:
-        current_app.logger.error(f"시장 시간 체크 오류: {e}")
+        current_app.logger.error(f"Alpaca API를 통한 시장 시간 체크 중 오류 발생: {e}", exc_info=True)
         return False
 
 @celery.task(name="app.tasks.train_specific_models", bind=True)
@@ -309,15 +327,32 @@ def train_specific_models(self, symbols: list):
 def update_portfolio_metrics():
     try:
         trading_service = TradingService()
+        metrics_service = get_metrics_service()
+        database_service = DatabaseService()
+        risk_manager = RiskManager()
+        
         account_info = trading_service.alpaca_service.get_account_info()
         
         if account_info:
-            PORTFOLIO_VALUE.set(float(account_info['portfolio_value']))
+            portfolio_value = float(account_info['portfolio_value'])
             positions = trading_service.get_positions()
-            ACTIVE_POSITIONS.set(positions.get('total_positions', 0))
-        else:
-            PORTFOLIO_VALUE.set(0.0)
-            ACTIVE_POSITIONS.set(0.0)
+            position_count = positions.get('total_positions', 0)
+            
+            daily_summary = database_service.get_trading_summary(days=1)
+            trades_today = daily_summary.get('total_trades', 0)
+            
+            risk_status = risk_manager.get_status()
+            daily_pnl = risk_status.get('daily_pnl', 0.0)
+            
+            metrics_service.update_portfolio_metrics(
+                portfolio_value=portfolio_value,
+                position_count=position_count,
+                daily_pnl=daily_pnl,
+                trades_today=trades_today
+            )
+            
+            current_app.logger.debug(f"포트폴리오 메트릭 업데이트: ${portfolio_value:.2f}")
+        
     except Exception as e:
         current_app.logger.error(f"포트폴리오 메트릭 업데이트 오류: {e}", exc_info=True)
 

@@ -2,6 +2,7 @@ flask
 gunicorn
 alpaca-py
 
+werkzeug
 pandas
 numpy
 
@@ -12,8 +13,6 @@ flower
 optuna
 XGBoost
 lightgbm
-scikit-learn
-statsmodels
 
 prometheus-client
 prometheus-flask-exporter

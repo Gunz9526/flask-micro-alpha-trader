@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 import lightgbm as lgb
 import xgboost as xgb
-from sklearn.ensemble import RandomForestRegressor
-from statsmodels.tsa.arima.model import ARIMA
+# from sklearn.ensemble import RandomForestRegressor
+# from statsmodels.tsa.arima.model import ARIMA
 from flask import current_app
 from typing import Dict, Tuple, List
 import joblib
@@ -326,10 +326,10 @@ class AIService:
 
         buy_threshold = current_app.config.get('AI_SIGNAL_BUY_THRESHOLD', 0.005)
         sell_threshold = current_app.config.get('AI_SIGNAL_SELL_THRESHOLD', -0.005)
-        confidence_threshold = current_app.config.get('AI_CONFIDENCE_THRESHOLD', 0.6)
+        confidence_threshold = current_app.config.get('AI_CONFIDENCE_THRESHOLD', 0.7)
 
         if avg_return > buy_threshold and confidence > confidence_threshold: signal = "BUY"
-        elif avg_return < -0.005 and confidence > confidence_threshold: signal = "SELL"
+        elif avg_return < sell_threshold and confidence > confidence_threshold: signal = "SELL"
         else: signal = "HOLD"
 
         return {"signal": signal, "confidence": confidence, "predicted_return": avg_return,

@@ -5,35 +5,43 @@ class Config:
     """기본 설정"""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
+    # Alpaca 설정
     ALPACA_API_KEY = os.environ.get('ALPACA_API_KEY')
     ALPACA_API_SECRET = os.environ.get('ALPACA_API_SECRET')
-    # APCA_API_BASE_URL = os.environ.get('APCA_API_BASE_URL', 'https://paper-api.alpaca.markets')
-    
-    # ALPACA_DATA_URL = os.environ.get('ALPACA_DATA_URL', 'https://data.alpaca.markets')
     ALPACA_PAPER = os.environ.get('ALPACA_PAPER', 'True').lower() in ('true', '1', 't')
     
+    # Redis 설정
     REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
     
+    # 로깅 설정
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
     
+    # Discord 웹훅
     DISCORD_WEBHOOK_URL = os.environ.get('DISCORD_WEBHOOK_URL')
     
-    AI_MODEL_TYPE = os.environ.get('AI_MODEL_TYPE', 'lightgbm')
-    AI_MIN_DATA_POINTS = int(os.environ.get('AI_MIN_DATA_POINTS', '30')) 
-    AI_CONFIDENCE_THRESHOLD = float(os.environ.get('AI_CONFIDENCE_THRESHOLD', '0.65'))
-    AI_SIGNAL_BUY_THRESHOLD = float(os.environ.get('AI_SIGNAL_BUY_THRESHOLD', '0.005'))
-    AI_SIGNAL_SELL_THRESHOLD = float(os.environ.get('AI_SIGNAL_SELL_THRESHOLD', '-0.005'))
-    AI_CONFIDENCE_THRESHOLD = float(os.environ.get('AI_CONFIDENCE_THRESHOLD', '0.6'))
-
-    RISK_MAX_PORTFOLIO_EXPOSURE = float(os.environ.get('RISK_MAX_PORTFOLIO_EXPOSURE', '0.80'))
-    RISK_MAX_POSITIONS = int(os.environ.get('RISK_MAX_POSITIONS', '7'))
-    RISK_MAX_DAILY_LOSS = float(os.environ.get('RISK_MAX_DAILY_LOSS', '-0.02'))
-
-    RISK_MAX_POSITION_SIZE = float(os.environ.get('RISK_MAX_POSITION_SIZE', '0.10'))
-    RISK_VOLATILITY_TARGET = float(os.environ.get('RISK_VOLATILITY_TARGET', '0.015'))
-    RISK_STOP_LOSS_PCT = float(os.environ.get('RISK_STOP_LOSS_PCT', '-0.05'))
-    RISK_TAKE_PROFIT_PCT = float(os.environ.get('RISK_TAKE_PROFIT_PCT', '0.10'))
+    # AI 모델 설정
+    AI_MIN_DATA_POINTS = int('30') 
+    AI_CONFIDENCE_THRESHOLD = float('0.7')
+    AI_SIGNAL_BUY_THRESHOLD = float('0.005')
+    AI_SIGNAL_SELL_THRESHOLD = float('-0.005')
     
+    # 데이터 디렉토리 설정
+    DATA_DIR = os.environ.get('DATA_DIR', 'data')
+    
+    # 최적화 설정 (새로 추가)
+    OPTIMIZER_MAX_MEMORY_MB = int('512')
+    OPTIMIZER_MAX_TRIALS = int('50')
+    OPTIMIZER_BATCH_SIZE = int('1000')
+    OPTIMIZER_MAX_SAMPLES = int('5000')
+    
+    # 리스크 관리 설정
+    RISK_MAX_PORTFOLIO_EXPOSURE = float('0.80')
+    RISK_MAX_POSITIONS = int('7')
+    RISK_MAX_DAILY_LOSS = float('-0.02')
+    RISK_MAX_POSITION_SIZE = float('0.10')
+    RISK_VOLATILITY_TARGET = float('0.015')
+    RISK_STOP_LOSS_PCT = float('-0.05')
+    RISK_TAKE_PROFIT_PCT = float('0.10')
 
 class DevelopmentConfig(Config):
     DEBUG = True
