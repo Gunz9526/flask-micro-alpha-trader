@@ -503,29 +503,6 @@ def register_routes(app, tasks):
                 }
             }), 500
 
-    @app.route('/api/backtest/<symbol>')
-    @jwt_required()
-    def quick_backtest(symbol: str):
-        from datetime import datetime, timedelta
-        
-        try:
-            from .services.backtest_service import BacktestService
-            backtest_service = BacktestService()
-            
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=90)
-            
-            result = backtest_service.run_backtest(
-                symbols=[symbol.upper()],
-                start_date=start_date,
-                end_date=end_date,
-                initial_capital=10000
-            )
-            
-            return jsonify(result)
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
     @app.route('/api/system/status')
     @jwt_required()
     def get_system_status():
@@ -786,4 +763,82 @@ def register_routes(app, tasks):
 
         except Exception as e:
             app.logger.error(f"통합 대시보드 API 오류: {e}", exc_info=True)
+            return jsonify({"error": str(e)}), 500
+        
+
+
+    @app.route('/api/backtest/', methods=['POST'])
+    @jwt_required()
+    def run_backtest():
+        try:
+            from .services.backtest_service import BacktestService
+            from datetime import datetime, timedelta
+            
+            data = request.get_json()
+            
+            symbols = data.get('symbols', ['AAPL', 'MSFT'])
+            days = int(data.get('days', 90))
+            initial_capital = float(data.get('initial_capital', 100000))
+            
+            if not symbols:
+                return jsonify({"error": "종목 리스트가 필요합니다"}), 400
+            
+            if days < 30 or days > 365:
+                return jsonify({"error": "백테스트 기간은 30-365일 사이여야 합니다"}), 400
+            
+            end_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            start_date = end_date - timedelta(days=days)
+            
+            backtest_service = BacktestService()
+            result = backtest_service.run_backtest(
+                symbols=symbols,
+                start_date=start_date,
+                end_date=end_date,
+                initial_capital=initial_capital
+            )
+            
+            return jsonify(result)
+            
+        except ValueError as e:
+            return jsonify({"error": f"잘못된 파라미터: {str(e)}"}), 400
+        except Exception as e:
+            app.logger.error(f"백테스트 API 오류: {e}", exc_info=True)
+            return jsonify({"error": str(e)}), 500
+
+    @app.route('/api/backtest/compare', methods=['POST'])
+    @jwt_required()
+    def compare_strategies():
+        try:
+            from .services.backtest_service import BacktestService
+            from datetime import datetime, timedelta
+            
+            data = request.get_json()
+            
+            symbols = data.get('symbols', ['AAPL', 'MSFT'])
+            days = int(data.get('days', 90))
+            initial_capital = float(data.get('initial_capital', 100000))
+            
+            end_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            start_date = end_date - timedelta(days=days)
+            
+            backtest_service = BacktestService()
+            
+            ai_result = backtest_service.run_backtest(symbols, start_date, end_date, initial_capital)
+            
+            benchmark_result = backtest_service._run_buy_hold_benchmark(symbols, start_date, end_date, initial_capital)
+            
+            comparison = {
+                "ai_strategy": ai_result,
+                "buy_hold_benchmark": benchmark_result,
+                "comparison": {
+                    "ai_outperformed": ai_result["performance"]["total_return"] > benchmark_result["performance"]["total_return"],
+                    "return_difference": ai_result["performance"]["total_return"] - benchmark_result["performance"]["total_return"],
+                    "sharpe_improvement": ai_result["performance"]["sharpe_ratio"] - benchmark_result["performance"]["sharpe_ratio"]
+                }
+            }
+            
+            return jsonify(comparison)
+            
+        except Exception as e:
+            app.logger.error(f"전략 비교 백테스트 오류: {e}", exc_info=True)
             return jsonify({"error": str(e)}), 500

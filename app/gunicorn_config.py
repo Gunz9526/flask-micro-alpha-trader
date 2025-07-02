@@ -14,7 +14,7 @@ workers = 1
 keepalive = 5
 
 accesslog = "logs/gunicorn_access.log"
-errorlog = "logs/gunicorn_error.log" 
+errorlog = "logs/gunicorn_error.log"
 loglevel = "info"                  
 capture_output = True
 enable_stdio_inheritance = True
