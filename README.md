@@ -58,9 +58,10 @@
 - **Backend**: Flask, Gunicorn, Celery
 - **AI/ML**: LightGBM, XGBoost, Optuna, NumPy, Pandas
 - **Database**:
-      SQLite: 거래 데이터 기록 (프로토타이핑 단계에서의 빠른 개발 및 로컬 테스트 용이성을 위해 선택)
-      JSON File: 리스크 상태 관리 (외부 DB 의존성 없이 상태를 빠르게 백업 및 복구하는 프로토타입 용도로 사용)
-      Note: 프로덕션 환경에서는 동시성 처리 및 데이터 무결성을 위해 **PostgreSQL/MySQL(거래 데이터)**과 **Redis(실시간 상태 관리)**로 전환
+  - **SQLite**: 거래 데이터 기록 (프로토타이핑 단계에서의 빠른 개발 및 로컬 테스트 용이성을 위해 선택)
+  - **JSON File**: 리스크 상태 관리 (외부 DB 의존성 없이 상태를 빠르게 백업 및 복구하는 프로토타입 용도로 사용)
+  > **참고**: 프로덕션 환경에서는 동시성 처리 및 데이터 무결성을 위해 **PostgreSQL/MySQL**(거래 데이터)과 **Redis**(실시간 상태 관리)로의 전환을 권장합니다.
+
 - **Message Queue**: Redis
 - **Monitoring**: Prometheus, Grafana, prometheus-flask-exporter
 - **External API**: Alpaca Markets API
