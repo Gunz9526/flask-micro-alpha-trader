@@ -1,9 +1,25 @@
 # Flask Micro Alpha Trader
+![Project Status](https://img.shields.io/badge/status-in_development-yellow)
+![Python Version](https://img.shields.io/badge/python-3.13%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)  
 
 **Flask Micro Alpha Trader**는 AI/ML 기반의 자동화된 주식 거래 시스템입니다. Alpaca API를 통해 실시간 데이터를 수집하고, 앙상블 머신러닝 모델로 거래 신호를 생성하여 자동으로 거래를 실행합니다.  
 독립적인 서비스 모듈과 비동기 작업 처리(Celery)에 중점을 둔 확장 가능한 모놀리식 아키텍처(Scalable Monolithic Architecture)로 설계했습니다.
 
 ## 🚀 주요 기능
+
+
+|  Pillar | Feature | Description |
+| :--- | :--- | :--- |
+|  **Intelligent Decision** | **Ensemble AI Model** | LightGBM과 XGBoost를 결합하여 예측 신뢰도를 극대화합니다. |
+| | **Dynamic Confidence** | 모델 예측값의 표준편차를 기반으로 실시간 신뢰도를 계산하여 불확실한 시장 상황에 대응합니다. |
+| | **Auto-Tuning** | Optuna를 사용하여 주기적으로 하이퍼파라미터를 최적화하고 모델 성능을 유지합니다. |
+|  **Robust Automation** | **Automated Pipeline** | Celery를 이용해 데이터 수집, 예측, 거래 실행까지의 전 과정을 10분마다 자동 실행합니다. |
+| | **Smart Rebalancing** | 신규 매수 신호 발생 시, 기존 포지션의 기대수익률과 비교하여 포트폴리오를 동적으로 리밸런싱합니다. |
+| | **Monitoring Dashboard** | Grafana와 Prometheus를 통해 시스템 메트릭, AI 성능, 포트폴리오 상태를 실시간으로 모니터링합니다. |
+|  **Systematic Risk** | **Volatility-based Sizing** | 시장 변동성에 따라 포지션 크기를 동적으로 조절하여 리스크 노출을 관리합니다. |
+| | **Strict Stop-Loss** | 개별 포지션(-5%) 및 일일 포트폴리오(-2%) 손실 한도를 엄격히 적용하여 치명적 손실을 방지합니다. |
+| | **Real-time Alerts** | 주요 거래 및 시스템 이벤트 발생 시 Discord를 통해 즉시 알림을 제공합니다. |
 
 ### 🤖 AI 기반 트레이딩
 - **앙상블 모델**: LightGBM과 XGBoost를 결합한 앙상블 방식으로 예측 신뢰도 향상
@@ -44,6 +60,16 @@
          │ (Message Broker)  │    │     (Metrics)     │    │    (Dashboard)    │
          └───────────────────┘    └───────────────────┘    └───────────────────┘
 ```
+
+
+### 데이터 및 제어 흐름 (Data & Control Flow)
+
+1.  **`Celery Beat`**가 10분마다 트레이딩 파이프라인(`smart_trading_pipeline` task)을 스케줄링합니다.
+2.  **`Celery Worker`**가 태스크를 받아 **`AlpacaService`**를 통해 시장 데이터를 가져옵니다.
+3.  **`AIService`**가 수집된 데이터를 기반으로 매수/매도 신호를 생성합니다.
+4.  **`TradingService`**는 생성된 신호와 **`RiskManager`**의 판단을 종합하여 실제 주문을 실행합니다.
+5.  **`Flask API`**는 외부 요청에 따라 현재 상태를 조회하거나, 백그라운드 작업을 수동으로 트리거하는 역할을 합니다.
+6.  모든 과정에서 발생하는 메트릭은 **`Prometheus`**에 의해 수집되고 **`Grafana`**에서 시각화됩니다.
 
 
 ### 핵심 서비스 모듈
@@ -284,6 +310,16 @@ curl -X POST -H "$AUTH_HEADER" http://localhost:5000/api/backtest/run \
   }
 }
 ```
+
+## 🤔 설계 결정 및 개선 방향 (Trade-offs and Future Improvements)
+
+이 프로젝트는 **개인 연구 및 학습 목적**에 맞춰, **비용 효율성과 빠른 개발 속도**를 최우선으로 고려하여 몇 가지 기술적 결정을 내렸습니다. 향후 프로덕션 환경으로 발전시킨다면 다음과 같은 개선이 필요합니다.
+
+*   **Database**: 현재의 SQLite/JSON 파일 구조는 동시성 및 데이터 무결성에 한계가 있습니다. **PostgreSQL**로 마이그레이션하여 트랜잭션을 보장하고, **Redis**를 도입하여 실시간 리스크 상태를 더 안정적으로 관리해야 합니다.
+*   **Architecture**: 현재는 모듈형 모놀리식 구조지만, AI 모델 서빙(AIService) 부분의 부하가 커질 경우, 이를 독립적인 **FastAPI 기반의 마이크로서비스로 분리**하여 독립적인 확장성을 확보하는 것을 고려할 수 있습니다.
+*   **Testing**: 현재 단위/통합 테스트 커버리지가 부족합니다. **pytest**를 도입하여 핵심 비즈니스 로직(리스크 관리, 주문 실행)에 대한 테스트 코드를 작성하고, **CI 파이프라인(e.g., GitHub Actions)에 통합**하여 코드 안정성을 확보해야 합니다.
+*   **Message Queue**: 현재 Redis를 단순 메시지 브로커로 사용하고 있지만, 더 복잡한 이벤트 기반 아키텍처를 위해서는 **Kafka**나 **RabbitMQ**를 도입하여 데이터 파이프라인의 안정성과 확장성을 높이는 것을 고려할 수 있습니다.
+
 
 ## 🔒 보안 고려사항
 
