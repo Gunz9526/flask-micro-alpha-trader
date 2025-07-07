@@ -1,6 +1,6 @@
 # Flask Micro Alpha Trader
 
-**Flask Micro Alpha Trader**는 AI/ML 기반의 자동화된 주식 거래 시스템입니다. Alpaca API를 통해 실시간 데이터를 수집하고, 앙상블 머신러닝 모델로 거래 신호를 생성하여 자동으로 거래를 실행합니다. 마이크로서비스 아키텍처를 기반으로 설계되어 확장성과 안정성을 제공합니다.
+**Flask Micro Alpha Trader**는 AI/ML 기반의 자동화된 주식 거래 시스템입니다. Alpaca API를 통해 실시간 데이터를 수집하고, 앙상블 머신러닝 모델로 거래 신호를 생성하여 자동으로 거래를 실행합니다. 독립적인 서비스 모듈과 비동기 작업 처리(Celery)에 중점을 둔 확장 가능한 모놀리식 아키텍처(Scalable Monolithic Architecture)**로 설계했습니다.
 
 ## 🚀 주요 기능
 
@@ -57,7 +57,10 @@
 
 - **Backend**: Flask, Gunicorn, Celery
 - **AI/ML**: LightGBM, XGBoost, Optuna, NumPy, Pandas
-- **Database**: SQLite (거래 데이터), JSON (리스크 상태)
+- **Database**:
+      SQLite: 거래 데이터 기록 (프로토타이핑 단계에서의 빠른 개발 및 로컬 테스트 용이성을 위해 선택)
+      JSON File: 리스크 상태 관리 (외부 DB 의존성 없이 상태를 빠르게 백업 및 복구하는 프로토타입 용도로 사용)
+      Note: 프로덕션 환경에서는 동시성 처리 및 데이터 무결성을 위해 **PostgreSQL/MySQL(거래 데이터)**과 **Redis(실시간 상태 관리)**로 전환
 - **Message Queue**: Redis
 - **Monitoring**: Prometheus, Grafana, prometheus-flask-exporter
 - **External API**: Alpaca Markets API
