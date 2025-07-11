@@ -6,7 +6,7 @@
 **Flask Micro Alpha Trader**는 AI/ML 기반의 자동화된 주식 거래 시스템입니다. Alpaca API를 통해 실시간 데이터를 수집하고, 앙상블 머신러닝 모델로 거래 신호를 생성하여 자동으로 거래를 실행합니다.  
 독립적인 서비스 모듈과 비동기 작업 처리(Celery)에 중점을 둔 확장 가능한 모놀리식 아키텍처(Scalable Monolithic Architecture)로 설계했습니다.
 
-## 🚀 주요 기능
+## 주요 기능
 
 
 |  Pillar | Feature | Description |
@@ -21,25 +21,25 @@
 | | **Strict Stop-Loss** | 개별 포지션(-5%) 및 일일 포트폴리오(-2%) 손실 한도를 엄격히 적용하여 치명적 손실을 방지합니다. |
 | | **Real-time Alerts** | 주요 거래 및 시스템 이벤트 발생 시 Discord를 통해 즉시 알림을 제공합니다. |
 
-### 🤖 AI 기반 트레이딩
+### AI 기반 트레이딩
 - **앙상블 모델**: LightGBM과 XGBoost를 결합한 앙상블 방식으로 예측 신뢰도 향상
 - **동적 신뢰도 계산**: 모델 예측값의 표준편차를 기반으로 신뢰도 동적 계산
 - **자동 하이퍼파라미터 최적화**: Optuna를 사용한 주기적 파라미터 튜닝
 - **실시간 예측**: 120일간의 과거 데이터를 기반으로 한 일일 수익률 예측
 
-### 🔄 자동화 트레이딩 파이프라인
+### 자동화 트레이딩 파이프라인
 - **주기적 실행**: Celery Beat를 통한 5분마다 자동 트레이딩 실행
 - **스마트 신호 생성**: AI 신뢰도와 예측 수익률을 기반으로 한 BUY/SELL/HOLD 신호
 - **포트폴리오 리밸런싱**: 새로운 기회 발견 시 기존 포지션 교체 로직
 - **손절/익절 자동화**: 설정된 손실(-5%) 및 이익(+10%) 기준에 따른 자동 청산
 
-### 🛡️ 고급 리스크 관리
+### 리스크 관리
 - **변동성 기반 포지션 크기**: 시장 변동성에 따른 동적 투자 규모 조절
 - **일일 손실 제한**: 일일 최대 손실(-2%) 도달 시 24시간 거래 중단
 - **포트폴리오 제약**: 최대 7개 포지션, 총 포트폴리오의 80% 이하 투자
 - **실시간 리스크 모니터링**: JSON 파일 기반 상태 관리로 재시작 후에도 리스크 상태 유지
 
-### 📊 모니터링 및 분석
+### 모니터링
 - **실시간 대시보드**: Grafana를 통한 포트폴리오, AI 성능, 시스템 메트릭 시각화
 - **백테스팅 엔진**: 과거 데이터로 전략 성능 검증
 - **거래 이력 추적**: SQLite 기반 거래 기록 및 성과 분석
@@ -62,7 +62,7 @@
 ```
 
 
-### 데이터 및 제어 흐름 (Data & Control Flow)
+### 데이터 및 제어 흐름
 
 1.  **`Celery Beat`**가 10분마다 트레이딩 파이프라인(`smart_trading_pipeline` task)을 스케줄링합니다.
 2.  **`Celery Worker`**가 태스크를 받아 **`AlpacaService`**를 통해 시장 데이터를 가져옵니다.
@@ -80,21 +80,21 @@
 - **DatabaseService**: 거래 이력 및 성과 데이터 관리
 - **BacktestService**: 전략 백테스팅 및 성과 분석
 
-## 🛠️ 기술 스택
+## 기술 스택
 
 - **Backend**: Flask, Gunicorn, Celery
 - **AI/ML**: LightGBM, XGBoost, Optuna, NumPy, Pandas
 - **Database**:
   - **SQLite**: 거래 데이터 기록 (프로토타이핑 단계에서의 빠른 개발 및 로컬 테스트 용이성을 위해 선택)
   - **JSON File**: 리스크 상태 관리 (외부 DB 의존성 없이 상태를 빠르게 백업 및 복구하는 프로토타입 용도로 사용)
-  > **참고**: 프로덕션 환경에서는 동시성 처리 및 데이터 무결성을 위해 **PostgreSQL/MySQL**(거래 데이터)과 **Redis**(실시간 상태 관리)로의 전환을 권장합니다.
+  > **참고**: 프로덕션 환경에서는 동시성 처리 및 데이터 무결성을 위해 **PostgreSQL/MySQL**(거래 데이터)과 **Redis**(실시간 상태 관리)로의 전환 권장
 
 - **Message Queue**: Redis
 - **Monitoring**: Prometheus, Grafana, prometheus-flask-exporter
 - **External API**: Alpaca Markets API
 - **Containerization**: Docker, Docker Compose
 
-## 📈 지원 종목
+## 지원 종목
 
 **기본 관심종목 (32개)**:
 ```
@@ -103,9 +103,9 @@ JNJ, UNH, JPM, PG, CAT, XOM, V, MA, DIS, HD, KO, PEP,
 INTC, CSCO, CMCSA, VZ, T, MRK, PFE, ABT, NKE, WMT
 ```
 
-## 🚀 시작하기
+## 시작하기
 
-### 사전 요구사항
+### 요구사항
 - [Docker](https://docs.docker.com/get-docker/) 및 [Docker Compose](https://docs.docker.com/compose/install/)
 - [Alpaca API 계정](https://alpaca.markets/) (Paper Trading 또는 Live Trading)
 - Discord 웹훅 URL (선택사항, 알림용)
@@ -143,12 +143,12 @@ INTC, CSCO, CMCSA, VZ, T, MRK, PFE, ABT, NKE, WMT
 
 3. **전체 시스템 시작**
    ```bash
-   docker-compose up --build -d
+   docker compose up --build -d
    ```
 
 4. **로그 확인**
    ```bash
-   docker-compose logs -f
+   docker compose logs -f
    ```
 
 ### 서비스 접속 정보
@@ -160,7 +160,7 @@ INTC, CSCO, CMCSA, VZ, T, MRK, PFE, ABT, NKE, WMT
 | **Flower** | http://localhost:5555 | Celery 작업 모니터링 |
 | **Prometheus** | http://localhost:9090 | 메트릭 수집 서버 |
 
-## 🔧 주요 API 엔드포인트
+## 주요 API 엔드포인트
 
 ### 인증 (JWT 토큰을 위한 임시 인증)
 ```bash
@@ -220,7 +220,7 @@ curl -H "$AUTH_HEADER" http://localhost:5000/api/risk/status
 curl -H "$AUTH_HEADER" http://localhost:5000/api/dashboard/all_data
 ```
 
-## ⚙️ 설정 관리
+## 설정 관리
 
 ### 리스크 관리 설정 (`app/config.py`)
 ```python
@@ -259,10 +259,10 @@ beat_schedule = {
 }
 ```
 
-## 📊 모니터링
+## 모니터링
 
 ### Grafana 대시보드
-시스템 시작 후 http://localhost:3000 접속 (admin/admin)
+http://localhost:3000 (admin/admin)
 
 **주요 메트릭**:
 - 포트폴리오 가치 추이
@@ -282,9 +282,7 @@ docker-compose logs -f celery_beat
 docker logs alpha-trader-flask
 ```
 
-## 🧪 백테스팅
-
-시스템에 내장된 백테스팅 엔진을 사용하여 전략 성능을 검증할 수 있습니다:
+## 백테스팅
 
 ```bash
 # 90일간 AAPL, MSFT 백테스팅
@@ -311,7 +309,7 @@ curl -X POST -H "$AUTH_HEADER" http://localhost:5000/api/backtest/run \
 }
 ```
 
-## 🤔 설계 결정 및 개선 방향 (Trade-offs and Future Improvements)
+## 설계 결정 및 개선 방향 (Trade-offs and Future Improvements)
 
 이 프로젝트는 **개인 연구 및 학습 목적**에 맞춰, **비용 효율성과 빠른 개발 속도**를 최우선으로 고려하여 몇 가지 기술적 결정을 내렸습니다. 향후 프로덕션 환경으로 발전시킨다면 다음과 같은 개선이 필요합니다.
 
@@ -321,14 +319,14 @@ curl -X POST -H "$AUTH_HEADER" http://localhost:5000/api/backtest/run \
 *   **Message Queue**: 현재 Redis를 단순 메시지 브로커로 사용하고 있지만, 더 복잡한 이벤트 기반 아키텍처를 위해서는 **Kafka**나 **RabbitMQ**를 도입하여 데이터 파이프라인의 안정성과 확장성을 높이는 것을 고려할 수 있습니다.
 
 
-## 🔒 보안 고려사항
+## 보안 고려사항
 
 1. **API 키 보안**: `.env` 파일을 절대 공개 저장소에 커밋하지 마세요
 2. **Paper Trading**: 실제 자금 투입 전 Paper Trading으로 충분한 테스트 수행
 3. **JWT 토큰**: 기본 24시간 만료, 프로덕션에서는 더 짧게 설정 권장
 4. **방화벽**: 프로덕션 환경에서는 불필요한 포트 차단
 
-## 🐛 트러블슈팅
+## 트러블슈팅
 
 ### 자주 발생하는 문제
 
@@ -344,20 +342,6 @@ curl -X POST -H "$AUTH_HEADER" http://localhost:5000/api/backtest/run \
    curl -X POST -H "$AUTH_HEADER" http://localhost:5000/api/training/start/batch
    ```
 
-3. **메모리 부족**
-   ```bash
-   # Docker 리소스 확인
-   docker stats
-   # 컨테이너 재시작
-   docker-compose restart
-   ```
-
-4. **Celery 작업 실패**
-   ```bash
-   # Celery 상태 확인
-   docker-compose logs celery_worker
-   # Flower에서 상세 확인: http://localhost:5555
-   ```
 
 ## 📁 프로젝트 구조
 
@@ -390,10 +374,10 @@ flask-micro-alpha-trader/
 └── .env.example                # 환경 변수 템플릿
 ```
 
-## 📄 라이선스
+## 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
 
-## ⚠️ 면책 조항
+## 면책 조항
 
 이 소프트웨어는 교육 및 연구 목적으로만 제공됩니다. 실제 거래에서 발생하는 손실에 대해 개발자는 책임지지 않습니다. 투자는 본인의 판단과 책임 하에 이루어져야 합니다.
