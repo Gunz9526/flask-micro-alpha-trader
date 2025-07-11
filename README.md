@@ -343,7 +343,7 @@ curl -X POST -H "$AUTH_HEADER" http://localhost:5000/api/backtest/run \
    ```
 
 
-## 📁 프로젝트 구조
+## 프로젝트 구조
 
 ```
 flask-micro-alpha-trader/
